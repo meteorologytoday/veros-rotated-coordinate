@@ -175,6 +175,7 @@ def generate_rotating_gaussian_grid(
     lat = r_spherical[2, :] * 180/np.pi
     print(f"lat range:  {np.amin(lat)} to {np.amax(lat)}")
     print(f"lon range:  {np.amin(lon)} to {np.amax(lon)}")
+    #binary_mask = np.ones_like(globe.is_land(lat, lon))
     binary_mask = globe.is_land(lat, lon)
         
     # Construct solid angles
@@ -202,7 +203,9 @@ def write_to_SCRIP_grid_file(
         grid_dims = [ rotating_gaussian_grid.binary_mask.size ]
     else:
         grid_dims = list(rotating_gaussian_grid.binary_mask.shape)
-    
+        
+    grid_shape = rotating_gaussian_grid.binary_mask.shape
+
     print("grid_dims: ", grid_dims)
     grid_center_lon = rotating_gaussian_grid.r_spherical[1, :, :].flatten() 
     grid_center_lat = rotating_gaussian_grid.r_spherical[2, :, :].flatten() 
@@ -242,6 +245,16 @@ def write_to_SCRIP_grid_file(
                 grid_area = ( [*dim_names], grid_area.reshape(grid_dims), {"units" : "radians^2"} ),
             ),
         )
+
+    print(f"grid_shape = {grid_shape}")
+    da_shape = xr.DataArray(
+        name ="grid_shape",
+        dims = ["shape_dimension",],
+        data = list(grid_shape),
+    )
+
+    ds = xr.merge([ds, da_shape])
+
 
     ds.to_netcdf(output_file)
 
@@ -302,6 +315,7 @@ def test_output_SCRIP_file():
         rotation_degree = 12.0,
     )
 
+
     print("Writing to file: ", output_file)
     write_to_SCRIP_grid_file(rotateing_gaussian_grid, output_file, flatten=False)
 
@@ -316,15 +330,19 @@ def print_worldmap():
     rotation_degree = 12.0
     for resolution in resolutions: 
         print(f"Generating grid resolution = {resolution}...")
+        output_file_SCRIP = f"rotating_gaussian_grid_{resolution:d}deg.SCRIP.nc"
         output_file = f"rotating_gaussian_grid_{resolution:d}deg.nc"
+        end_buffer_lat = 0.0 
+        end_buffer_lon = 0.0 
         rotating_gaussian_grid = generate_rotating_gaussian_grid(
-            lon_bounds = np.linspace(-180, 180, 360//resolution+1),
-            lat_bounds = np.linspace(-90, 90, 180//resolution+1),
+            lon_bounds = np.linspace(-180 + end_buffer_lon, 180 - end_buffer_lon, 360//resolution+1),
+            lat_bounds = np.linspace(-90 + end_buffer_lat, 90 - end_buffer_lat, 180//resolution+1),
             rotation_along_longitude_degree = rotation_along_longitude_degree,
             rotation_degree = rotation_degree,
         )
         print("Writing to file: ", output_file)
         write_to_SCRIP_grid_file(rotating_gaussian_grid, output_file, flatten=False)
+        write_to_SCRIP_grid_file(rotating_gaussian_grid, output_file_SCRIP, flatten=True)
         rotating_gaussian_grids[resolution] = rotating_gaussian_grid
 
     import matplotlib.pyplot as plt 
@@ -348,6 +366,6 @@ def print_worldmap():
     
 if __name__ == "__main__":
     #test_rotation()
-    #test_output_SCRIP_file()
+    test_output_SCRIP_file()
     print_worldmap()
      
