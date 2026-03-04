@@ -85,6 +85,9 @@ def generate_JCMGrid(
     lat_bounds = np.linspace(-90, 90, nlat+1) * np.pi/180.0 
     lon_bounds = np.linspace(0, 360, nlon+1) * np.pi/180.0
  
+    lat_centers = (lat_bounds[1:] + lat_bounds[:-1])/2
+    lon_centers = (lon_bounds[1:] + lon_bounds[:-1])/2
+ 
     # JCM is lon-lat
     r_spherical = np.zeros((3, nlon, nlat))
     r_corners_spherical = np.zeros((3, 4, nlon, nlat))
@@ -137,16 +140,23 @@ def write_to_SCRIP_grid_file(grid: JCMGrid, output_file: str | Path, flatten:boo
     grid_corner_lon = np.permute_dims( grid.r_corners_spherical[1], axes=(1, 2, 0))
     grid_corner_lat = np.permute_dims( grid.r_corners_spherical[2], axes=(1, 2, 0))
     
-    rad2deg = 180/np.pi
+    rad2deg = 180 / np.pi
+    # Need copy. I am not using "*=" because it is in-place
+    grid_corner_lon = grid_corner_lon * rad2deg   
+    grid_corner_lat = grid_corner_lat * rad2deg   
+    grid_center_lat = grid_center_lat * rad2deg
+    grid_center_lon = grid_center_lon * rad2deg
+
+
     if flatten:
         ds = xr.Dataset(
             data_vars = dict(
                 grid_dims = ( ["grid_rank", ], grid_dims),
                 grid_imask = ( ["grid_size", ], grid_imask.flatten()),
-                grid_center_lat = ( ["grid_size", ], grid_center_lat.flatten() , {"units" : "radians"} ),
-                grid_center_lon = ( ["grid_size", ], grid_center_lon.flatten() , {"units" : "radians"} ),
-                grid_corner_lat = ( ["grid_size", "grid_corners"], grid_corner_lat.reshape((-1, grid_corners)), {"units" : "radians"} ),
-                grid_corner_lon = ( ["grid_size", "grid_corners"], grid_corner_lon.reshape((-1, grid_corners)), {"units" : "radians"} ),
+                grid_center_lat = ( ["grid_size", ], grid_center_lat.flatten() , {"units" : "degrees"} ),
+                grid_center_lon = ( ["grid_size", ], grid_center_lon.flatten() , {"units" : "degrees"} ),
+                grid_corner_lat = ( ["grid_size", "grid_corners"], grid_corner_lat.reshape((-1, grid_corners)), {"units" : "degrees"} ),
+                grid_corner_lon = ( ["grid_size", "grid_corners"], grid_corner_lon.reshape((-1, grid_corners)), {"units" : "degrees"} ),
                 grid_area = ( ["grid_size",], grid_area.flatten(), {"units" : "radians^2"} ),
             ),
         )
@@ -156,10 +166,10 @@ def write_to_SCRIP_grid_file(grid: JCMGrid, output_file: str | Path, flatten:boo
             data_vars = dict(
                 grid_dims = ( ["grid_rank", ], grid_dims),
                 grid_imask = ( [*grid_dim_names], grid_imask),
-                grid_center_lat = ( [*grid_dim_names], grid_center_lat, {"units" : "radians"} ),
-                grid_center_lon = ( [*grid_dim_names], grid_center_lon, {"units" : "radians"} ),
-                grid_corner_lat = ( [*grid_dim_names, "grid_corners"], grid_corner_lat, {"units" : "radians"} ),
-                grid_corner_lon = ( [*grid_dim_names, "grid_corners"], grid_corner_lon, {"units" : "radians"} ),
+                grid_center_lat = ( [*grid_dim_names], grid_center_lat, {"units" : "degrees"} ),
+                grid_center_lon = ( [*grid_dim_names], grid_center_lon, {"units" : "degrees"} ),
+                grid_corner_lat = ( [*grid_dim_names, "grid_corners"], grid_corner_lat, {"units" : "degrees"} ),
+                grid_corner_lon = ( [*grid_dim_names, "grid_corners"], grid_corner_lon, {"units" : "degrees"} ),
                 grid_area = ( [*grid_dim_names], grid_area, {"units" : "radians^2"} ),
             ),
         )

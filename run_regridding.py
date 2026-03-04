@@ -13,7 +13,8 @@ regridder = ESMFRegridder(
     dst_shape = RG_shape,
 )
 
-data = xr.open_dataset("atm_sample.nc")["specific_humidity"].isel(time=0, level=-1).to_numpy()
+#data = xr.open_dataset("data/atm_sample.nc")["specific_humidity"].isel(time=0, level=-1).to_numpy()
+data = xr.open_dataset("data/atm_sample.nc")["surface_flux.tskin"].isel(time=0).to_numpy()
 
 
 import matplotlib.pyplot as plt 

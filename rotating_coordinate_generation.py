@@ -160,8 +160,8 @@ def generate_rotating_gaussian_grid(
     r_spherical = my_rotate(r_spherical, rotation_along_longitude_degree, rotation_degree)
     r_corners_spherical = my_rotate(r_corners_spherical, rotation_along_longitude_degree, rotation_degree)
     
-    r_spherical[1, :, :] = confine_longitude(r_spherical[1, :, :])
-    r_corners_spherical[1, :, :, :] = confine_longitude(r_corners_spherical[1, :, :, :])
+    #r_spherical[1, :, :] = confine_longitude(r_spherical[1, :, :])
+    #r_corners_spherical[1, :, :, :] = confine_longitude(r_corners_spherical[1, :, :, :])
     
     """
     # Construct the other three faces by rotation
@@ -175,8 +175,8 @@ def generate_rotating_gaussian_grid(
     lat = r_spherical[2, :] * 180/np.pi
     print(f"lat range:  {np.amin(lat)} to {np.amax(lat)}")
     print(f"lon range:  {np.amin(lon)} to {np.amax(lon)}")
-    #binary_mask = np.ones_like(globe.is_land(lat, lon))
-    binary_mask = globe.is_land(lat, lon)
+    binary_mask = np.ones_like(globe.is_land(lat, confine_longitude(lon)))
+    #binary_mask = globe.is_land(lat, lon)
         
     # Construct solid angles
     solid_angles = compute_solid_angle(r_corners_spherical)
@@ -203,45 +203,51 @@ def write_to_SCRIP_grid_file(
         grid_dims = [ rotating_gaussian_grid.binary_mask.size ]
     else:
         grid_dims = list(rotating_gaussian_grid.binary_mask.shape)
-        
-    grid_shape = rotating_gaussian_grid.binary_mask.shape
+    
+    # grid_shape preserves the original shape, whereas grid_dims may be flattened
+    grid_shape = list(rotating_gaussian_grid.binary_mask.shape)
 
-    print("grid_dims: ", grid_dims)
-    grid_center_lon = rotating_gaussian_grid.r_spherical[1, :, :].flatten() 
-    grid_center_lat = rotating_gaussian_grid.r_spherical[2, :, :].flatten() 
-    grid_imask = rotating_gaussian_grid.binary_mask.flatten()
+    grid_center_lon = np.permute_dims(rotating_gaussian_grid.r_spherical[1], axes=(0, 1)).flatten() 
+    grid_center_lat = np.permute_dims(rotating_gaussian_grid.r_spherical[2], axes=(0, 1)).flatten() 
+
+    grid_imask = np.permute_dims(rotating_gaussian_grid.binary_mask, axes=(0, 1)).flatten()
+    grid_area = np.permute_dims(rotating_gaussian_grid.solid_angles, axes=(0, 1)).flatten() 
     
-    grid_corner_lat = np.zeros((grid_size, grid_corners))
-    grid_corner_lon = np.zeros((grid_size, grid_corners))
-    grid_area = rotating_gaussian_grid.solid_angles.flatten() 
-    for k in range(grid_corners): 
-        _lat = rotating_gaussian_grid.r_corners_spherical[2, k, :, :].flatten()
-        grid_corner_lon[:, k] = rotating_gaussian_grid.r_corners_spherical[1, k, :, :].flatten()
-        grid_corner_lat[:, k] = _lat
-    
+    grid_corner_lon = np.permute_dims( rotating_gaussian_grid.r_corners_spherical[1], axes=(1, 2, 0)).reshape((-1, 4))
+    grid_corner_lat = np.permute_dims( rotating_gaussian_grid.r_corners_spherical[2], axes=(1, 2, 0)).reshape((-1, 4))
+        
+    rad2deg = 180 / np.pi
+    # Need copy. I am not using "*=" because it is in-place
+    grid_corner_lon = grid_corner_lon * rad2deg   
+    grid_corner_lat = grid_corner_lat * rad2deg   
+    grid_center_lat = grid_center_lat * rad2deg
+    grid_center_lon = grid_center_lon * rad2deg
+
+ 
     if flatten:
         ds = xr.Dataset(
             data_vars = dict(
                 grid_dims = ( ["grid_rank", ], grid_dims),
                 grid_imask = ( ["grid_size", ], grid_imask),
-                grid_center_lat = ( ["grid_size", ], grid_center_lat, {"units" : "radians"} ),
-                grid_center_lon = ( ["grid_size", ], grid_center_lon, {"units" : "radians"} ),
-                grid_corner_lat = ( ["grid_size", "grid_corners"], grid_corner_lat, {"units" : "radians"} ),
-                grid_corner_lon = ( ["grid_size", "grid_corners"], grid_corner_lon, {"units" : "radians"} ),
+                grid_center_lat = ( ["grid_size", ], grid_center_lat, {"units" : "degrees"} ),
+                grid_center_lon = ( ["grid_size", ], grid_center_lon, {"units" : "degrees"} ),
+                grid_corner_lat = ( ["grid_size", "grid_corners"], grid_corner_lat, {"units" : "degrees"} ),
+                grid_corner_lon = ( ["grid_size", "grid_corners"], grid_corner_lon, {"units" : "degrees"} ),
                 grid_area = ( ["grid_size",], grid_area, {"units" : "radians^2"} ),
             ),
         )
     else:
-        # Debug purpose
         dim_names = ["j", "i"]
+        print("dim_names : ", dim_names)
+        print("grid_dims : ", grid_dims)
         ds = xr.Dataset(
             data_vars = dict(
                 grid_dims = ( ["grid_rank", ], grid_dims),
                 grid_imask = ( [*dim_names], grid_imask.reshape(grid_dims)),
-                grid_center_lat = ( [*dim_names], grid_center_lat.reshape(grid_dims), {"units" : "radians"} ),
-                grid_center_lon = ( [*dim_names], grid_center_lon.reshape(grid_dims), {"units" : "radians"} ),
-                grid_corner_lat = ( [*dim_names, "grid_corners"], grid_corner_lat.reshape(grid_dims + [grid_corners,]), {"units" : "radians"} ),
-                grid_corner_lon = ( [*dim_names, "grid_corners"], grid_corner_lon.reshape(grid_dims + [grid_corners,]), {"units" : "radians"} ),
+                grid_center_lat = ( [*dim_names], grid_center_lat.reshape(grid_dims), {"units" : "degrees"} ),
+                grid_center_lon = ( [*dim_names], grid_center_lon.reshape(grid_dims), {"units" : "degrees"} ),
+                grid_corner_lat = ( [*dim_names, "grid_corners"], grid_corner_lat.reshape(grid_dims + [grid_corners,]), {"units" : "degrees_east"} ),
+                grid_corner_lon = ( [*dim_names, "grid_corners"], grid_corner_lon.reshape(grid_dims + [grid_corners,]), {"units" : "degrees_east"} ),
                 grid_area = ( [*dim_names], grid_area.reshape(grid_dims), {"units" : "radians^2"} ),
             ),
         )
@@ -304,44 +310,28 @@ def test_rotation():
    
     plt.show()
 
-def test_output_SCRIP_file():
-    output_file = "rotating_gaussian_grid.nc"
-
-    print("Generating grid...") 
-    rotateing_gaussian_grid = generate_rotating_gaussian_grid(
-        lon_bounds = np.linspace(-180, 180, 360//2+1),
-        lat_bounds = np.linspace(-90, 90, 180//2+1),
-        rotation_along_longitude_degree = -42 + 90.0,
-        rotation_degree = 12.0,
-    )
-
-
-    print("Writing to file: ", output_file)
-    write_to_SCRIP_grid_file(rotateing_gaussian_grid, output_file, flatten=False)
-
 def print_worldmap():
     
     import numpy as np
   
-    resolutions = [1, 2, 3, 4]
+    resolutions = [1, 4, 5]#[1, 2, 3, 4]
     rotating_gaussian_grids = {}
 
     rotation_along_longitude_degree = -42 + 90
     rotation_degree = 12.0
     for resolution in resolutions: 
         print(f"Generating grid resolution = {resolution}...")
-        output_file_SCRIP = f"rotating_gaussian_grid_{resolution:d}deg.SCRIP.nc"
-        output_file = f"rotating_gaussian_grid_{resolution:d}deg.nc"
-        end_buffer_lat = 0.0 
-        end_buffer_lon = 0.0 
+        output_file_SCRIP = f"rotating_gaussian_grid_{resolution:.2f}deg.SCRIP.nc"
+        output_file = f"rotating_gaussian_grid_{resolution:.2f}deg.nc"
         rotating_gaussian_grid = generate_rotating_gaussian_grid(
-            lon_bounds = np.linspace(-180 + end_buffer_lon, 180 - end_buffer_lon, 360//resolution+1),
-            lat_bounds = np.linspace(-90 + end_buffer_lat, 90 - end_buffer_lat, 180//resolution+1),
+            lat_bounds = np.linspace(-90, 90, int(180/resolution+1)),
+            lon_bounds = np.linspace(0, 360, int(360/resolution+1)),
             rotation_along_longitude_degree = rotation_along_longitude_degree,
             rotation_degree = rotation_degree,
         )
         print("Writing to file: ", output_file)
         write_to_SCRIP_grid_file(rotating_gaussian_grid, output_file, flatten=False)
+        print("Writing to file: ", output_file_SCRIP)
         write_to_SCRIP_grid_file(rotating_gaussian_grid, output_file_SCRIP, flatten=True)
         rotating_gaussian_grids[resolution] = rotating_gaussian_grid
 
@@ -366,6 +356,6 @@ def print_worldmap():
     
 if __name__ == "__main__":
     #test_rotation()
-    test_output_SCRIP_file()
+    #test_output_SCRIP_file()
     print_worldmap()
      
