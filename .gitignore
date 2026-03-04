@@ -11,3 +11,4 @@ CLAUDE.md
 .idea/
 env/
 *.nc
+!atm_sample.nc
