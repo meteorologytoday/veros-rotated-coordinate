@@ -18,4 +18,7 @@ bash 01_generate_grids_and_weights.sh
 
 # Run veros
 veros run veros_case_setup.py
+
+# Demonstrate regird
+python3 run_regridding.py
 ```

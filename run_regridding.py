@@ -2,8 +2,8 @@ import xarray as xr
 from ESMF_regrid import ESMFRegridder
 import numpy as np
 
-JCM_shape = xr.load_dataset("grid_JCM_T31.SCRIP.nc")["grid_shape"].to_numpy()
-RG_shape = xr.load_dataset("rotating_gaussian_grid_4.00deg.SCRIP.nc")["grid_shape"].to_numpy()
+JCM_shape = xr.load_dataset("grid_data/grid_JCM_T31.SCRIP.nc")["grid_shape"].to_numpy()
+RG_shape = xr.load_dataset("grid_data/rotating_gaussian_grid_4.00deg.SCRIP.nc")["grid_shape"].to_numpy()
 
 regridder_forward = ESMFRegridder(
     weight_file = "weights/weight_algo-bilinear_JCM_T31_to_RG4.00deg.nc",
@@ -26,6 +26,7 @@ data_recovered = regridder_backward(data_regridded)
 data_difference = data_recovered - data
 difference_std = np.std(data_difference)
 
+
 print(f"difference_std / max(abs(data)) = {difference_std / np.amax(np.abs(data)) * 100} %")
 
 import matplotlib.pyplot as plt 
@@ -43,7 +44,7 @@ for _ax in ax.flatten():
 ax[0, 0].set_title("JCM T31")
 ax[0, 1].set_title("Rotated Gaussian 4deg")
 ax[1, 0].set_title("Recovered JCM T31")
-ax[1, 1].set_title("Difference")
+ax[1, 1].set_title(f"Std of difference / max(abs(data)) = {np.round(difference_std / np.amax(np.abs(data)) * 100)} %")
 #fig.suptitle(f"Rotate ${rotation_degree:.1f}^{{\\circ}}$ along longitude ${rotation_along_longitude_degree:.1f}^{{\\circ}}$ (right-hand rule)")
 
 #fig.savefig("rotating_gaussian_landsea_mask.svg")
