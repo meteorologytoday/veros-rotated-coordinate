@@ -5,9 +5,10 @@ This repo is to rotate the gaussian grid coordinate in veros such that the coord
 ## Install
 
 ```
-pip install matplotlib
+pip install global-land-mask
 pip install veros
 pip install esmf-regrid
+pip install matplotlib
 ```
 
 ## Running
