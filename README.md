@@ -22,3 +22,8 @@ veros run veros_case_setup.py
 # Demonstrate regird
 python3 run_regridding.py
 ```
+
+## To-do
+
+Work out vector regridding between JCM and Veros grid
+
