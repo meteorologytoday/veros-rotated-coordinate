@@ -44,12 +44,12 @@ nx = int(360 / resolution)
 ny = int(180 / resolution) - crop_lat_count*2
 x_origin = 0.0
     
-land_sea_mask_file = f"rotating_gaussian_grid_{resolution:.2f}deg.nc"
+land_sea_mask_file = f"grid_data/rotating_gaussian_grid_{resolution:.2f}deg.nc"
 
 def get_land_sea_mask():
     global land_sea_mask_file
     # 1: land, 0: ocean
-    land_sea_mask = 1 - xr.open_dataset(land_sea_mask_file)["grid_imask"].to_numpy().astype(int).transpose()
+    land_sea_mask = 1 - xr.open_dataset(land_sea_mask_file)["grid_landseamask"].to_numpy().astype(int).transpose()
     print(land_sea_mask[:, 0])
     return land_sea_mask[:, crop_lat_count:-crop_lat_count]
 
@@ -78,9 +78,9 @@ class VerosCaseSetup(VerosSetup):
         settings.description = "My Veros setup"
 
         settings.nx, settings.ny, settings.nz = nx, ny, 15
-        settings.dt_mom = 3600 / 3
-        settings.dt_tracer = 3600*3 / 3
-        settings.runlen = 86400 * 365
+        settings.dt_mom = 3600 / 2
+        settings.dt_tracer = 3600 / 2
+        settings.runlen = 86400 * 60
 
         settings.x_origin = x_origin
         settings.y_origin = y_origin
@@ -153,7 +153,7 @@ class VerosCaseSetup(VerosSetup):
         print(vs.yt.shape)
         print(vs.coriolis_t.shape)
         vs.coriolis_t = update(
-            vs.coriolis_t, at[2:-2, 2:-2], 2 * settings.omega * npx.sin(get_latitude())
+            vs.coriolis_t, at[2:-2, 2:-2], 2 * settings.omega * npx.sin(get_latitude()*npx.pi/180.0)
         )
 
     @veros_routine
@@ -220,17 +220,16 @@ class VerosCaseSetup(VerosSetup):
 
     @veros_routine
     def set_forcing(self, state):
-        pass
-        #vs = state.variables
-        #vs.forc_temp_surface = vs.t_rest * (vs.t_star - vs.temp[:, :, -1, vs.tau])
+        vs = state.variables
+        vs.forc_temp_surface = vs.t_rest * (vs.t_star - vs.temp[:, :, -1, vs.tau])
 
     @veros_routine
     def set_diagnostics(self, state):
         settings = state.settings
         diagnostics = state.diagnostics
-        #diagnostics.clear()       
+        #diagnostics.clear() 
         
-        diagnostics["snapshot"].output_frequency = 86400 * 10
+        diagnostics["snapshot"].output_frequency = 86400 * 1
         diagnostics["averages"].output_variables = (
             "salt",
             "temp",
@@ -241,8 +240,8 @@ class VerosCaseSetup(VerosSetup):
             "surface_taux",
             "surface_tauy",
         )
-        diagnostics["averages"].output_frequency = 365 * 86400.0
-        diagnostics["averages"].sampling_frequency = settings.dt_tracer * 10
+        diagnostics["averages"].output_frequency = 86400.0
+        diagnostics["averages"].sampling_frequency = 3600.0
         diagnostics["overturning"].output_frequency = 365 * 86400.0 / 48.0
         diagnostics["overturning"].sampling_frequency = settings.dt_tracer * 10
         diagnostics["tracer_monitor"].output_frequency = 365 * 86400.0 / 12.0

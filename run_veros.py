@@ -6,7 +6,7 @@ setattr(runtime_settings, "force_overwrite", True)
 setattr(runtime_settings, 'device', 'cpu')
 from veros_case_setup import VerosCaseSetup
 
-total_time = 86400 * 30 * 6
+total_time = 86400 * 10
 ocn_model = VerosCaseSetup()
 
 print("Setup ocean model")

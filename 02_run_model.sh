@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 run_veros.py
+veros run veros_case_setup.py

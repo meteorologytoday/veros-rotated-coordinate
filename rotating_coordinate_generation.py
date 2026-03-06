@@ -211,6 +211,7 @@ def write_to_SCRIP_grid_file(
     grid_center_lat = np.permute_dims(rotating_gaussian_grid.r_spherical[2], axes=(0, 1)).flatten() 
 
     grid_imask = np.ones_like(np.permute_dims(rotating_gaussian_grid.binary_mask, axes=(0, 1)).flatten())
+    grid_landseamask = np.permute_dims(rotating_gaussian_grid.binary_mask, axes=(0, 1)).flatten()
     grid_area = np.permute_dims(rotating_gaussian_grid.solid_angles, axes=(0, 1)).flatten() 
     
     grid_corner_lon = np.permute_dims( rotating_gaussian_grid.r_corners_spherical[1], axes=(1, 2, 0)).reshape((-1, 4))
@@ -249,6 +250,7 @@ def write_to_SCRIP_grid_file(
                 grid_corner_lat = ( [*dim_names, "grid_corners"], grid_corner_lat.reshape(grid_dims + [grid_corners,]), {"units" : "degrees_east"} ),
                 grid_corner_lon = ( [*dim_names, "grid_corners"], grid_corner_lon.reshape(grid_dims + [grid_corners,]), {"units" : "degrees_east"} ),
                 grid_area = ( [*dim_names], grid_area.reshape(grid_dims), {"units" : "radians^2"} ),
+                grid_landseamask = ( [*dim_names], grid_landseamask.reshape(grid_dims)),
             ),
         )
 
