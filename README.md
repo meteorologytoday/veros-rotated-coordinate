@@ -23,7 +23,10 @@ veros run veros_case_setup.py
 python3 run_regridding.py
 ```
 
-## To-do
+## Land-sea Mask
 
+![Landsea mask](https://github.com/meteorologytoday/veros-rotated-coordinate/blob/main/figure/rotating_gaussian_landsea_mask.svg)
+
+## To-do
 Work out vector regridding between JCM and Veros grid
 
