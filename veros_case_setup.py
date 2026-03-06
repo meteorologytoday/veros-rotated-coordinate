@@ -44,7 +44,7 @@ nx = int(360 / resolution)
 ny = int(180 / resolution) - crop_lat_count*2
 x_origin = 0.0
     
-land_sea_mask_file = f"rotating_gaussian_grid_{resolution:d}deg.nc"
+land_sea_mask_file = f"rotating_gaussian_grid_{resolution:.2f}deg.nc"
 
 def get_land_sea_mask():
     global land_sea_mask_file

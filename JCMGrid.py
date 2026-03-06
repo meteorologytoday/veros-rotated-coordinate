@@ -104,7 +104,7 @@ def generate_JCMGrid(
     lat_deg = r_spherical[2, :] * 180/np.pi
     lon_deg[lon_deg > 180] -= 360.0
 
-    binary_mask = np.ones_like(lon_deg)#globe.is_land( lat_deg, lon_deg )
+    binary_mask = globe.is_land( lat_deg, lon_deg )
         
     # Construct solid angles
     grid_solid_angles = compute_solid_angle(r_corners_spherical)
@@ -133,7 +133,7 @@ def write_to_SCRIP_grid_file(grid: JCMGrid, output_file: str | Path, flatten:boo
     grid_dim_names = ["lon", "lat"]
     grid_center_lon = grid.r_spherical[1]
     grid_center_lat = grid.r_spherical[2]
-    grid_imask = grid.binary_mask
+    grid_imask = np.ones_like(grid.binary_mask)
     grid_area = grid.grid_solid_angles
   
     # dim => (corners(4), lon, lat) 
@@ -189,10 +189,12 @@ def write_to_SCRIP_grid_file(grid: JCMGrid, output_file: str | Path, flatten:boo
 def test_output_SCRIP_file():
     
     resolutions = [ 31 ]
-
+    output_dir = Path("grid_data")
+    output_dir.mkdir(exist_ok=True, parents=True)
+ 
     for resolution in resolutions:
-        output_file = f"grid_JCM_T{resolution:d}.nc"
-        output_file_SCRIP = f"grid_JCM_T{resolution:d}.SCRIP.nc"
+        output_file = output_dir / f"grid_JCM_T{resolution:d}.nc"
+        output_file_SCRIP = output_dir / f"grid_JCM_T{resolution:d}.SCRIP.nc"
         print("Generating grid...") 
         grid = generate_JCMGrid(resolution)
         print("Writing to file: ", output_file)

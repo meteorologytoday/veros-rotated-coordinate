@@ -153,8 +153,8 @@ def generate_rotating_gaussian_grid(
         ))
     
     def confine_longitude(lon):
-        lon = lon % (2*np.pi)
-        lon[lon > np.pi] -= 2*np.pi
+        lon = lon % 360
+        lon[lon > 180] -= 360
         return lon
 
     r_spherical = my_rotate(r_spherical, rotation_along_longitude_degree, rotation_degree)
@@ -175,7 +175,7 @@ def generate_rotating_gaussian_grid(
     lat = r_spherical[2, :] * 180/np.pi
     print(f"lat range:  {np.amin(lat)} to {np.amax(lat)}")
     print(f"lon range:  {np.amin(lon)} to {np.amax(lon)}")
-    binary_mask = np.ones_like(globe.is_land(lat, confine_longitude(lon)))
+    binary_mask = globe.is_land(lat, confine_longitude(lon))
     #binary_mask = globe.is_land(lat, lon)
         
     # Construct solid angles
@@ -210,7 +210,7 @@ def write_to_SCRIP_grid_file(
     grid_center_lon = np.permute_dims(rotating_gaussian_grid.r_spherical[1], axes=(0, 1)).flatten() 
     grid_center_lat = np.permute_dims(rotating_gaussian_grid.r_spherical[2], axes=(0, 1)).flatten() 
 
-    grid_imask = np.permute_dims(rotating_gaussian_grid.binary_mask, axes=(0, 1)).flatten()
+    grid_imask = np.ones_like(np.permute_dims(rotating_gaussian_grid.binary_mask, axes=(0, 1)).flatten())
     grid_area = np.permute_dims(rotating_gaussian_grid.solid_angles, axes=(0, 1)).flatten() 
     
     grid_corner_lon = np.permute_dims( rotating_gaussian_grid.r_corners_spherical[1], axes=(1, 2, 0)).reshape((-1, 4))
@@ -313,16 +313,19 @@ def test_rotation():
 def print_worldmap():
     
     import numpy as np
-  
-    resolutions = [1, 4, 5]#[1, 2, 3, 4]
+    
+    output_dir = Path("grid_data")
+    output_dir.mkdir(exist_ok=True, parents=True)
+    
+    resolutions = [1, 2, 3, 4]
     rotating_gaussian_grids = {}
-
+    
     rotation_along_longitude_degree = -42 + 90
     rotation_degree = 12.0
     for resolution in resolutions: 
         print(f"Generating grid resolution = {resolution}...")
-        output_file_SCRIP = f"rotating_gaussian_grid_{resolution:.2f}deg.SCRIP.nc"
-        output_file = f"rotating_gaussian_grid_{resolution:.2f}deg.nc"
+        output_file_SCRIP = output_dir / f"rotating_gaussian_grid_{resolution:.2f}deg.SCRIP.nc"
+        output_file = output_dir / f"rotating_gaussian_grid_{resolution:.2f}deg.nc"
         rotating_gaussian_grid = generate_rotating_gaussian_grid(
             lat_bounds = np.linspace(-90, 90, int(180/resolution+1)),
             lon_bounds = np.linspace(0, 360, int(360/resolution+1)),
@@ -335,11 +338,13 @@ def print_worldmap():
         write_to_SCRIP_grid_file(rotating_gaussian_grid, output_file_SCRIP, flatten=True)
         rotating_gaussian_grids[resolution] = rotating_gaussian_grid
 
+    import matplotlib as mplt
+    mplt.use("Agg")
+    
     import matplotlib.pyplot as plt 
     from matplotlib.colors import ListedColormap
-
+    
     fig, ax = plt.subplots(len(resolutions)//2, 2, figsize=(10, 6))
-
     my_cmap = ListedColormap(['white', 'gray'])
 
     for i, resolution in enumerate(rotating_gaussian_grids.keys()):
@@ -351,7 +356,8 @@ def print_worldmap():
 
     fig.suptitle(f"Rotate ${rotation_degree:.1f}^{{\\circ}}$ along longitude ${rotation_along_longitude_degree:.1f}^{{\\circ}}$ (right-hand rule)")
 
-    fig.savefig("rotating_gaussian_landsea_mask.svg")
+    Path("figure").mkdir(exist_ok=True, parents=True)
+    fig.savefig("figure/rotating_gaussian_landsea_mask.svg")
     plt.show()
     
 if __name__ == "__main__":
