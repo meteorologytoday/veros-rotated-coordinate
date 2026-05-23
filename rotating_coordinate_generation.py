@@ -34,7 +34,7 @@ def get_local_coordinate_vectors_cartesian(r_spherical: np.ndarray):
    
     local_y = np.array([
         - np.cos(lon) * np.sin(lat),
-          np.sin(lon) * np.sin(lat),
+        - np.sin(lon) * np.sin(lat),
           np.cos(lat),
     ])
  
@@ -192,10 +192,8 @@ def generate_rotating_gaussian_grid(
         """
             pts: points in spherical coordinates
         """
-        longitude_radian = longitude_degree * np.pi / 180.0
-        rotation_vec = np.array([np.cos(longitude_radian), np.sin(longitude_radian), 0.0]) 
         return cartesian_to_spherical(
-            my_rotate_in_cartesian(pts, longitude_degree, rotation_degree)
+            my_rotate_in_cartesian(spherical_to_cartesian(pts), longitude_degree, rotation_degree)
         )
 
     
