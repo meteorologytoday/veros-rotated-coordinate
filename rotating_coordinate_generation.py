@@ -14,10 +14,38 @@ class RotatingGaussianGrid:
 #    r_corners_spherical_true: np.ndarray
     binary_mask: np.ndarray
     solid_angles: np.ndarray
+    cos_alpha: np.ndarray
+    sin_alpha: np.ndarray
 
 def normalize(a):
     normalized = a / norm(a, ord=2, axis=0, keepdims=True)
     return normalized
+
+def get_local_coordinate_vectors_cartesian(r_spherical: np.ndarray):
+    
+    lon = r_spherical[1]
+    lat = r_spherical[2]
+ 
+    local_x = np.array([
+        - np.sin(lon),
+          np.cos(lon),
+        0,
+    ])
+   
+    local_y = np.array([
+        - np.cos(lon) * np.sin(lat),
+          np.sin(lon) * np.sin(lat),
+          np.cos(lat),
+    ])
+ 
+    local_z = np.array([
+        np.cos(lat) * np.cos(lon),
+        np.cos(lat) * np.sin(lon),
+        np.sin(lat),
+    ])
+ 
+    
+    return local_x, local_y, local_z
 
 def cartesian_to_spherical(r_cartesian):
     """
@@ -131,9 +159,13 @@ def generate_rotating_gaussian_grid(
     dlats = lat_bounds[1:] - lat_bounds[:-1]
     lon_centers = ( lon_bounds[:-1] + lon_bounds[1:] ) / 2.0
     lat_centers = ( lat_bounds[:-1] + lat_bounds[1:] ) / 2.0
-
+    
     r_spherical = np.zeros((3, len(lat_centers), len(lon_centers)))
     r_corners_spherical = np.zeros((3, 4, len(lat_centers), len(lon_centers)))
+    
+    # Alpha is the angle between true east and coordinate east
+    cos_alpha = np.zeros((len(lat_centers), len(lon_centers)))
+    sin_alpha = np.zeros((len(lat_centers), len(lon_centers)))
 
     for i in range(len(lon_centers)):
         for j in range(len(lat_centers)):
@@ -143,33 +175,65 @@ def generate_rotating_gaussian_grid(
             r_corners_spherical[:, 2, j, i] = [1.0, lon_bounds[i+1], lat_bounds[j+1]]
             r_corners_spherical[:, 3, j, i] = [1.0, lon_bounds[i], lat_bounds[j+1]]
 
-    def my_rotate(pts, longitude_degree, rotation_degree):
+
+    def my_rotate_in_cartesian(pts, longitude_degree, rotation_degree):
+        """
+            pts: points in cartesian coordinates
+        """
         longitude_radian = longitude_degree * np.pi / 180.0
         rotation_vec = np.array([np.cos(longitude_radian), np.sin(longitude_radian), 0.0]) 
-        return cartesian_to_spherical(rotate_along_a_given_vector(
-            spherical_to_cartesian(pts),
+        return rotate_along_a_given_vector(
+            pts,
             rotation_vec,
-            rotation_degree * np.pi / 180.0
-        ))
+            rotation_degree * np.pi / 180.0,
+        )
+
+    def my_rotate_in_spherical(pts, longitude_degree, rotation_degree):
+        """
+            pts: points in spherical coordinates
+        """
+        longitude_radian = longitude_degree * np.pi / 180.0
+        rotation_vec = np.array([np.cos(longitude_radian), np.sin(longitude_radian), 0.0]) 
+        return cartesian_to_spherical(
+            my_rotate_in_cartesian(pts, longitude_degree, rotation_degree)
+        )
+
     
     def confine_longitude(lon):
         lon = lon % 360
         lon[lon > 180] -= 360
         return lon
 
-    r_spherical = my_rotate(r_spherical, rotation_along_longitude_degree, rotation_degree)
-    r_corners_spherical = my_rotate(r_corners_spherical, rotation_along_longitude_degree, rotation_degree)
+    # Send these points defining the grid to newly rotated location
+    r_spherical = my_rotate_in_spherical(r_spherical, rotation_along_longitude_degree, rotation_degree)
+    r_corners_spherical = my_rotate_in_spherical(r_corners_spherical, rotation_along_longitude_degree, rotation_degree)
     
-    #r_spherical[1, :, :] = confine_longitude(r_spherical[1, :, :])
-    #r_corners_spherical[1, :, :, :] = confine_longitude(r_corners_spherical[1, :, :, :])
-    
-    """
-    # Construct the other three faces by rotation
-    for i in range(3):
-        _stack_r_spherical.append(rotate_90deg_along_z_axis(_stack_r_spherical[-1]))
-        _stack_r_corners_spherical.append(rotate_90deg_along_z_axis(_stack_r_corners_spherical[-1]))
-    """
+    # Here, also find the angle between local coordinate vectors and 
+    # the true east vector. For now, I am doing this using for-loop
+    # It might be able to speed up with vectorized version in the future.
+    r_cartesian = spherical_to_cartesian(r_spherical)
+    for i in range(len(lon_centers)):
+        for j in range(len(lat_centers)):
+             
+            _r_spherical = r_spherical[:, j, i]
+            # 1. Compute the "true north / east" of the corresponding lat, lon
+            local_east, local_north, _ = get_local_coordinate_vectors_cartesian(_r_spherical)
+            
+            # 2. Rotate the local coordinate vectors
 
+            # Find the source point that was rotated here
+            _r_spherical_source = my_rotate_in_spherical(_r_spherical, rotation_along_longitude_degree, - rotation_degree)
+
+            # Compute the local coordinate of the source point 
+            local_x_source, _, _ = get_local_coordinate_vectors_cartesian(_r_spherical_source)
+            
+            # Rotate local coordinate vectors of the source point
+            local_x = my_rotate_in_cartesian(local_x_source, rotation_along_longitude_degree, rotation_degree)
+            
+            # 3. Determine angle using the inner products
+            cos_alpha[j, i] = dot(local_x, local_east) 
+            sin_alpha[j, i] = dot(local_x, local_north) 
+    
     # Construct land-sea mask
     lon = r_spherical[1, :] * 180/np.pi
     lat = r_spherical[2, :] * 180/np.pi
@@ -186,6 +250,8 @@ def generate_rotating_gaussian_grid(
         r_corners_spherical = r_corners_spherical,
         binary_mask = binary_mask,
         solid_angles = solid_angles,
+        cos_alpha = cos_alpha,
+        sin_alpha = sin_alpha,
     )
 
 
@@ -224,6 +290,8 @@ def write_to_SCRIP_grid_file(
     grid_center_lat = grid_center_lat * rad2deg
     grid_center_lon = grid_center_lon * rad2deg
 
+    grid_cos_alpha = rotating_gaussian_grid.cos_alpha.flatten()
+    grid_sin_alpha = rotating_gaussian_grid.sin_alpha.flatten()
  
     if flatten:
         ds = xr.Dataset(
@@ -235,6 +303,8 @@ def write_to_SCRIP_grid_file(
                 grid_corner_lat = ( ["grid_size", "grid_corners"], grid_corner_lat, {"units" : "degrees"} ),
                 grid_corner_lon = ( ["grid_size", "grid_corners"], grid_corner_lon, {"units" : "degrees"} ),
                 grid_area = ( ["grid_size",], grid_area, {"units" : "radians^2"} ),
+                grid_cos_alpha = ( ["grid_size",], grid_cos_alpha, {"units" : "none"} ),
+                grid_sin_alpha = ( ["grid_size",], grid_sin_alpha, {"units" : "none"} ),
             ),
         )
     else:
@@ -251,6 +321,8 @@ def write_to_SCRIP_grid_file(
                 grid_corner_lon = ( [*dim_names, "grid_corners"], grid_corner_lon.reshape(grid_dims + [grid_corners,]), {"units" : "degrees_east"} ),
                 grid_area = ( [*dim_names], grid_area.reshape(grid_dims), {"units" : "radians^2"} ),
                 grid_landseamask = ( [*dim_names], grid_landseamask.reshape(grid_dims)),
+                grid_cos_alpha = ( [*dim_names], grid_cos_alpha.reshape(grid_dims), {"units" : "none"} ),
+                grid_sin_alpha = ( [*dim_names], grid_sin_alpha.reshape(grid_dims), {"units" : "none"} ),
             ),
         )
 
