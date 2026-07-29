@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import List
 from global_land_mask import globe
 from pathlib import Path
+import jem
 from jem.tool_scripts.generate_jcm_forcing_and_topography_files import generate_jcm_forcing_and_topography_files
 import xarray as xr
 
@@ -135,6 +136,7 @@ def write_to_SCRIP_grid_file(grid: JCMGrid, output_file: str | Path, flatten:boo
     grid_center_lat = grid.r_spherical[2]
     grid_imask = np.ones_like(grid.binary_mask)
     grid_area = grid.grid_solid_angles
+    grid_landseamask = grid.binary_mask
   
     # dim => (corners(4), lon, lat) 
     grid_corner_lon = np.permute_dims( grid.r_corners_spherical[1], axes=(1, 2, 0))
@@ -158,6 +160,7 @@ def write_to_SCRIP_grid_file(grid: JCMGrid, output_file: str | Path, flatten:boo
                 grid_corner_lat = ( ["grid_size", "grid_corners"], grid_corner_lat.reshape((-1, grid_corners)), {"units" : "degrees"} ),
                 grid_corner_lon = ( ["grid_size", "grid_corners"], grid_corner_lon.reshape((-1, grid_corners)), {"units" : "degrees"} ),
                 grid_area = ( ["grid_size",], grid_area.flatten(), {"units" : "radians^2"} ),
+                grid_landseamask = ( ["grid_size",], grid_landseamask.flatten(), ),
             ),
         )
 
@@ -171,6 +174,7 @@ def write_to_SCRIP_grid_file(grid: JCMGrid, output_file: str | Path, flatten:boo
                 grid_corner_lat = ( [*grid_dim_names, "grid_corners"], grid_corner_lat, {"units" : "degrees"} ),
                 grid_corner_lon = ( [*grid_dim_names, "grid_corners"], grid_corner_lon, {"units" : "degrees"} ),
                 grid_area = ( [*grid_dim_names], grid_area, {"units" : "radians^2"} ),
+                grid_landseamask = ( [*grid_dim_names], grid_landseamask),
             ),
         )
 
