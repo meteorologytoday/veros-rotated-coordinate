@@ -301,6 +301,7 @@ def write_to_SCRIP_grid_file(
                 grid_corner_lat = ( ["grid_size", "grid_corners"], grid_corner_lat, {"units" : "degrees"} ),
                 grid_corner_lon = ( ["grid_size", "grid_corners"], grid_corner_lon, {"units" : "degrees"} ),
                 grid_area = ( ["grid_size",], grid_area, {"units" : "radians^2"} ),
+                grid_landseamask = ( ["grid_size",], grid_landseamask ),
                 grid_cos_alpha = ( ["grid_size",], grid_cos_alpha, {"units" : "none"} ),
                 grid_sin_alpha = ( ["grid_size",], grid_sin_alpha, {"units" : "none"} ),
             ),

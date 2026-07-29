@@ -12,3 +12,5 @@ CLAUDE.md
 env/
 *.nc
 !atm_sample.nc
+*.png
+*.svg
