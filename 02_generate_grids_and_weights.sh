@@ -1,8 +1,8 @@
 #!/bin/bash
 
 export PYTHONPATH=/home/tienyiao/projects_local/project_jax-esm/jem_repo/jax-esm
-python3 rotating_coordinate_generation.py
-python3 JCMGrid.py
+python3 src/rotating_coordinate_generation.py
+python3 src/JCMGrid.py
 grid_dir=grid_data
 weight_dir=regrid_data
 

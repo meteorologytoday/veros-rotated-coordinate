@@ -117,6 +117,26 @@ def rotate_along_a_given_vector(
 def dot(a, b):
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 
+def my_rotate_in_cartesian(pts, longitude_degree, rotation_degree):
+    """
+        pts: points in cartesian coordinates
+    """
+    longitude_radian = longitude_degree * np.pi / 180.0
+    rotation_vec = np.array([np.cos(longitude_radian), np.sin(longitude_radian), 0.0])
+    return rotate_along_a_given_vector(
+        pts,
+        rotation_vec,
+        rotation_degree * np.pi / 180.0,
+    )
+
+def my_rotate_in_spherical(pts, longitude_degree, rotation_degree):
+    """
+        pts: points in spherical coordinates
+    """
+    return cartesian_to_spherical(
+        my_rotate_in_cartesian(spherical_to_cartesian(pts), longitude_degree, rotation_degree)
+    )
+
 def compute_solid_angle(r_corners_spherical):
 
     r_corners_cartesian = spherical_to_cartesian(r_corners_spherical)
@@ -176,27 +196,6 @@ def generate_rotating_gaussian_grid(
             r_corners_spherical[:, 3, j, i] = [1.0, lon_bounds[i], lat_bounds[j+1]]
 
 
-    def my_rotate_in_cartesian(pts, longitude_degree, rotation_degree):
-        """
-            pts: points in cartesian coordinates
-        """
-        longitude_radian = longitude_degree * np.pi / 180.0
-        rotation_vec = np.array([np.cos(longitude_radian), np.sin(longitude_radian), 0.0]) 
-        return rotate_along_a_given_vector(
-            pts,
-            rotation_vec,
-            rotation_degree * np.pi / 180.0,
-        )
-
-    def my_rotate_in_spherical(pts, longitude_degree, rotation_degree):
-        """
-            pts: points in spherical coordinates
-        """
-        return cartesian_to_spherical(
-            my_rotate_in_cartesian(spherical_to_cartesian(pts), longitude_degree, rotation_degree)
-        )
-
-    
     def confine_longitude(lon):
         lon = lon % 360
         lon[lon > 180] -= 360
