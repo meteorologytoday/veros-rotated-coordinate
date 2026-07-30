@@ -18,10 +18,10 @@ pip install matplotlib
 bash 01_generate_grids_and_weights.sh
 
 # Run veros
-veros run veros_case_setup.py
+veros run src/veros_case_setup.py
 
 # Demonstrate regird
-python3 run_regridding.py
+python3 src/run_regridding.py
 ```
 
 ## Land-sea Mask
