@@ -2,20 +2,20 @@ import xarray as xr
 from ESMF_regrid import ESMFRegridder
 import numpy as np
 
-JCM_ds = xr.load_dataset("grid_data/grid_JCM_T31.SCRIP.nc")
+JCM_ds = xr.load_dataset("grid_data/JCM_T31.SCRIP.nc")
 RG_ds = xr.load_dataset("grid_data/rotating_gaussian_grid_4.00deg.SCRIP.nc")
 
 JCM_shape = JCM_ds["grid_shape"].to_numpy()
 RG_shape = RG_ds["grid_shape"].to_numpy()
 
 regridder_JCM2RG = ESMFRegridder(
-    weight_file = "regrid_data/weight_algo-bilinear_JCM_T31_to_RG4.00deg.nc",
+    weight_file = "grid_data/weight_algo-bilinear_JCM_T31_to_RG4.00deg.nc",
     src_shape = JCM_shape,
     dst_shape = RG_shape,
 )
 
 regridder_RG2JCM = ESMFRegridder(
-    weight_file = "regrid_data/weight_algo-bilinear_RG4.00deg_to_JCM_T31.nc",
+    weight_file = "grid_data/weight_algo-bilinear_RG4.00deg_to_JCM_T31.nc",
     src_shape = RG_shape,
     dst_shape = JCM_shape,
 )

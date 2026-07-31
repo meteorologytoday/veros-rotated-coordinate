@@ -197,8 +197,8 @@ def test_output_SCRIP_file():
     output_dir.mkdir(exist_ok=True, parents=True)
  
     for resolution in resolutions:
-        output_file = output_dir / f"grid_JCM_T{resolution:d}.nc"
-        output_file_SCRIP = output_dir / f"grid_JCM_T{resolution:d}.SCRIP.nc"
+        output_file = output_dir / f"JCM_T{resolution:d}.nc"
+        output_file_SCRIP = output_dir / f"JCM_T{resolution:d}.SCRIP.nc"
         print("Generating grid...") 
         grid = generate_JCMGrid(resolution)
         print("Writing to file: ", output_file)
