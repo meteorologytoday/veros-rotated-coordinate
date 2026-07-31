@@ -152,8 +152,12 @@ def rg_prerotation_bounds_rad(resolution_deg):
     return np.deg2rad(lon_bounds_deg), np.deg2rad(lat_bounds_deg)
 
 
-def save_mask(output_file, lat_deg, lon_deg, land_fraction, counts, dim_names, bounds_specs=None, extra_coords=None):
+def save_mask(output_file, dim0_deg, dim1_deg, land_fraction, counts, dim_names, bounds_specs=None, extra_coords=None):
     """
+    dim0_deg, dim1_deg: 1-D coordinate values (degrees) for dim_names[0] and
+    dim_names[1] respectively -- caller controls axis order (e.g. lon,lat
+    for JCM; lat,lon for the rotated grid).
+
     bounds_specs: list of (coord_name, bnds_var_name, bnds_dims, bnds_data, bnds_attrs).
     For each entry, ds[coord_name].attrs["bounds"] is set to bnds_var_name (CF-style
     linkage), as long as coord_name is one of this dataset's coordinates.
@@ -167,9 +171,9 @@ def save_mask(output_file, lat_deg, lon_deg, land_fraction, counts, dim_names, b
     )
 
     coords = {}
-    if lat_deg.ndim == 1:
-        coords[dim_names[0]] = lat_deg
-        coords[dim_names[1]] = lon_deg
+    if dim0_deg.ndim == 1:
+        coords[dim_names[0]] = dim0_deg
+        coords[dim_names[1]] = dim1_deg
     if extra_coords:
         coords.update(extra_coords)
 
@@ -192,22 +196,26 @@ def process_jcm(lon_rad, lat_rad, values, lon_c_deg, lat_c_deg, lsm_data):
 
     lon_bounds_rad, lat_bounds_rad = jcm_bounds_rad(nlon, nlat)
     land_fraction, counts = bin_average(lon_rad, lat_rad, values, lon_bounds_rad, lat_bounds_rad)
+    # bin_average always returns (n_lat, n_lon); transpose to JCMGrid.py's
+    # native (lon, lat) axis order.
+    land_fraction = land_fraction.T
+    counts = counts.T
 
     lat_centers_deg = np.rad2deg((lat_bounds_rad[:-1] + lat_bounds_rad[1:]) / 2)
     lon_centers_deg = np.rad2deg((lon_bounds_rad[:-1] + lon_bounds_rad[1:]) / 2)
-    LAT_Q, LON_Q = np.meshgrid(np.deg2rad(lat_centers_deg), np.deg2rad(lon_centers_deg), indexing="ij")
+    LON_Q, LAT_Q = np.meshgrid(np.deg2rad(lon_centers_deg), np.deg2rad(lat_centers_deg), indexing="ij")
 
     land_fraction = fill_empty_cells(
         land_fraction, counts, LON_Q, LAT_Q, lon_c_deg, lat_c_deg, lsm_data, f"JCM T{JCM_RESOLUTION}"
     )
 
     bounds_specs = [
-        ("lat", "lat_bnds", ["lat", "bnds"], bounds_1d_deg(lat_bounds_rad), {"units": "degrees_north"}),
         ("lon", "lon_bnds", ["lon", "bnds"], bounds_1d_deg(lon_bounds_rad), {"units": "degrees_east"}),
+        ("lat", "lat_bnds", ["lat", "bnds"], bounds_1d_deg(lat_bounds_rad), {"units": "degrees_north"}),
     ]
 
     output_file = OUTPUT_DIR / f"landsea_mask_JCM_T{JCM_RESOLUTION}.nc"
-    save_mask(output_file, lat_centers_deg, lon_centers_deg, land_fraction, counts, ["lat", "lon"], bounds_specs=bounds_specs)
+    save_mask(output_file, lon_centers_deg, lat_centers_deg, land_fraction, counts, ["lon", "lat"], bounds_specs=bounds_specs)
 
 
 def process_rotating_grid(lon_rad, lat_rad, values, resolution_deg, lon_c_deg, lat_c_deg, lsm_data):
