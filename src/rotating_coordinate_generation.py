@@ -77,41 +77,39 @@ def rotate_along_z_axis(r_cartesian: np.ndarray, angle_rad: float):
     new_y = sin_angle * x + cos_angle * y
     return stack((new_x, new_y, z), axis=0)
  
+def cross(a, b):
+    return np.stack([
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ], axis=0)
+
 def rotate_along_a_given_vector(
     r_cartesian: np.ndarray,
     rotate_vec: np.ndarray,
     angle_rad: float,
 ):
+    """
+    Rodrigues' rotation formula: rotate r_cartesian by angle_rad about the
+    axis rotate_vec. Unlike building an explicit orthonormal frame (which
+    needs to normalize the component of r_cartesian perpendicular to the
+    axis), this has no division step, so it stays numerically stable even
+    when r_cartesian is exactly parallel to the axis -- there the
+    perpendicular component is legitimately the zero vector, and this
+    formula returns r_cartesian unchanged instead of amplifying
+    floating-point noise into a spurious result.
+    """
     cos_angle = cos(angle_rad)
     sin_angle = sin(angle_rad)
-    
-    unit_rotate_vec = normalize(rotate_vec)
+
+    k = normalize(rotate_vec)
     newaxis_expand = [None,] * len(r_cartesian.shape[1:])
-    colon_expand = [slice(None),] * len(r_cartesian.shape[1:])
-   
-    z = dot(r_cartesian, unit_rotate_vec)
-    x_vec = r_cartesian - z[None, *colon_expand] * unit_rotate_vec[:, *newaxis_expand]
-    unit_x_vec = normalize(x_vec)
-    x = dot(r_cartesian, unit_x_vec)
-    
-    # outer product in-place
-    vec1 = unit_rotate_vec
-    vec2 = unit_x_vec
-    d0 =   vec1[1] * vec2[2] - vec1[2] * vec2[1]
-    d1 = - vec1[0] * vec2[2] + vec1[2] * vec2[0]
-    d2 =   vec1[0] * vec2[1] - vec1[1] * vec2[0]
-    unit_y_vec = np.stack([d0, d1, d2], axis=0)
-    
-    new_x = cos_angle * x
-    new_y = sin_angle * x
-    
-    return stack(
-        (
-            new_x * unit_x_vec[0] + new_y * unit_y_vec[0] + z * unit_rotate_vec[0],
-            new_x * unit_x_vec[1] + new_y * unit_y_vec[1] + z * unit_rotate_vec[1],
-            new_x * unit_x_vec[2] + new_y * unit_y_vec[2] + z * unit_rotate_vec[2],
-        ),
-        axis=0
+    k_dot_v = dot(r_cartesian, k)
+
+    return (
+        r_cartesian * cos_angle
+        + cross(k, r_cartesian) * sin_angle
+        + k[:, *newaxis_expand] * k_dot_v * (1 - cos_angle)
     )
 
 def dot(a, b):
@@ -298,7 +296,7 @@ def write_to_SCRIP_grid_file(
 
     grid_cos_alpha = np.permute_dims(rotating_gaussian_grid.cos_alpha, axes=two_dim_order).flatten()
     grid_sin_alpha = np.permute_dims(rotating_gaussian_grid.sin_alpha, axes=two_dim_order).flatten()
- 
+
     if flatten:
         ds = xr.Dataset(
             data_vars = dict(
