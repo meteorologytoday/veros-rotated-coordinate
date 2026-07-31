@@ -226,12 +226,15 @@ def process_rotating_grid(lon_rad, lat_rad, values, resolution_deg, lon_c_deg, l
 
     lon_bounds_rad, lat_bounds_rad = rg_prerotation_bounds_rad(resolution_deg)
     land_fraction, counts = bin_average(lon_pre, lat_pre, values, lon_bounds_rad, lat_bounds_rad)
+    # bin_average always returns (n_lat, n_lon); transpose to lon,lat order.
+    land_fraction = land_fraction.T
+    counts = counts.T
 
     # True geographic lon/lat of each rotated cell center, for reference/plotting
     # and as the query point for nearest-neighbor fallback on empty cells.
     lat_pre_centers = (lat_bounds_rad[:-1] + lat_bounds_rad[1:]) / 2
     lon_pre_centers = (lon_bounds_rad[:-1] + lon_bounds_rad[1:]) / 2
-    LAT_PRE, LON_PRE = np.meshgrid(lat_pre_centers, lon_pre_centers, indexing="ij")
+    LON_PRE, LAT_PRE = np.meshgrid(lon_pre_centers, lat_pre_centers, indexing="ij")
     centers_pre = np.stack([np.ones(LAT_PRE.shape), LON_PRE, LAT_PRE], axis=0)
     centers_true = my_rotate_in_spherical(centers_pre, RG_ROTATION_ALONG_LONGITUDE_DEGREE, RG_ROTATION_DEGREE)
     true_lon_rad = centers_true[1]
@@ -252,6 +255,9 @@ def process_rotating_grid(lon_rad, lat_rad, values, resolution_deg, lon_c_deg, l
     # geographic lon/lat, so it needs all 4 corners, obtained by forward-
     # rotating the pre-rotation corners.
     lon_corner_pre_deg, lat_corner_pre_deg = corner_bounds_deg(lon_bounds_rad, lat_bounds_rad)
+    # corner_bounds_deg always returns (n_lat, n_lon, 4); transpose to lon,lat order.
+    lon_corner_pre_deg = lon_corner_pre_deg.transpose(1, 0, 2)
+    lat_corner_pre_deg = lat_corner_pre_deg.transpose(1, 0, 2)
     corners_pre = np.stack([
         np.ones_like(lon_corner_pre_deg),
         np.deg2rad(lon_corner_pre_deg),
@@ -262,21 +268,21 @@ def process_rotating_grid(lon_rad, lat_rad, values, resolution_deg, lon_c_deg, l
     true_lat_bnds_deg = np.rad2deg(corners_true[2])
 
     bounds_specs = [
-        ("j", "lat_bnds", ["j", "bnds"], lat_bnds_prerotation, {"units": "degrees_north", "long_name": "pre-rotation (un-rotated) latitude bounds"}),
         ("i", "lon_bnds", ["i", "bnds"], lon_bnds_prerotation, {"units": "degrees_east", "long_name": "pre-rotation (un-rotated) longitude bounds"}),
-        ("true_lat", "true_lat_bnds", ["j", "i", "grid_corners"], true_lat_bnds_deg, {"units": "degrees_north", "long_name": "true (rotated) latitude of cell corners"}),
-        ("true_lon", "true_lon_bnds", ["j", "i", "grid_corners"], true_lon_bnds_deg, {"units": "degrees_east", "long_name": "true (rotated) longitude of cell corners"}),
+        ("j", "lat_bnds", ["j", "bnds"], lat_bnds_prerotation, {"units": "degrees_north", "long_name": "pre-rotation (un-rotated) latitude bounds"}),
+        ("true_lon", "true_lon_bnds", ["i", "j", "grid_corners"], true_lon_bnds_deg, {"units": "degrees_east", "long_name": "true (rotated) longitude of cell corners"}),
+        ("true_lat", "true_lat_bnds", ["i", "j", "grid_corners"], true_lat_bnds_deg, {"units": "degrees_north", "long_name": "true (rotated) latitude of cell corners"}),
     ]
 
     output_file = OUTPUT_DIR / f"landsea_mask_RG_{resolution_deg:.2f}deg.nc"
     save_mask(
         output_file,
-        np.rad2deg(lat_pre_centers), np.rad2deg(lon_pre_centers),
-        land_fraction, counts, ["j", "i"],
+        np.rad2deg(lon_pre_centers), np.rad2deg(lat_pre_centers),
+        land_fraction, counts, ["i", "j"],
         bounds_specs=bounds_specs,
         extra_coords={
-            "true_lon": (["j", "i"], true_lon_deg, {"units": "degrees_east"}),
-            "true_lat": (["j", "i"], true_lat_deg, {"units": "degrees_north"}),
+            "true_lon": (["i", "j"], true_lon_deg, {"units": "degrees_east"}),
+            "true_lat": (["i", "j"], true_lat_deg, {"units": "degrees_north"}),
         },
     )
 
