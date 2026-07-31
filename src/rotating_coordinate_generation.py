@@ -262,33 +262,42 @@ def write_to_SCRIP_grid_file(
    
     grid_size = rotating_gaussian_grid.binary_mask.size
     grid_corners = 4
+
+    # rotating_gaussian_grid's arrays are native (lat, lon). Reorder to
+    # (lon, lat) here so the written file matches the convention used
+    # elsewhere in this pipeline (JCMGrid.py, convert_era5_landsea_mask.py).
+    # two_dim_order permutes a plain (lat, lon) array; three_dim_order
+    # permutes a (corner, lat, lon) array to (lon, lat, corner).
+    two_dim_order = (1, 0)
+    three_dim_order = (2, 1, 0)
+
     if flatten:
         grid_dims = [ rotating_gaussian_grid.binary_mask.size ]
     else:
-        grid_dims = list(rotating_gaussian_grid.binary_mask.shape)
-    
+        grid_dims = [ rotating_gaussian_grid.binary_mask.shape[k] for k in two_dim_order ]
+
     # grid_shape preserves the original shape, whereas grid_dims may be flattened
-    grid_shape = list(rotating_gaussian_grid.binary_mask.shape)
+    grid_shape = [ rotating_gaussian_grid.binary_mask.shape[k] for k in two_dim_order ]
 
-    grid_center_lon = np.permute_dims(rotating_gaussian_grid.r_spherical[1], axes=(0, 1)).flatten() 
-    grid_center_lat = np.permute_dims(rotating_gaussian_grid.r_spherical[2], axes=(0, 1)).flatten() 
+    grid_center_lon = np.permute_dims(rotating_gaussian_grid.r_spherical[1], axes=two_dim_order).flatten()
+    grid_center_lat = np.permute_dims(rotating_gaussian_grid.r_spherical[2], axes=two_dim_order).flatten()
 
-    grid_imask = np.ones_like(np.permute_dims(rotating_gaussian_grid.binary_mask, axes=(0, 1)).flatten())
-    grid_landseamask = np.permute_dims(rotating_gaussian_grid.binary_mask, axes=(0, 1)).flatten()
-    grid_area = np.permute_dims(rotating_gaussian_grid.solid_angles, axes=(0, 1)).flatten() 
-    
-    grid_corner_lon = np.permute_dims( rotating_gaussian_grid.r_corners_spherical[1], axes=(1, 2, 0)).reshape((-1, 4))
-    grid_corner_lat = np.permute_dims( rotating_gaussian_grid.r_corners_spherical[2], axes=(1, 2, 0)).reshape((-1, 4))
-        
+    grid_imask = np.ones_like(np.permute_dims(rotating_gaussian_grid.binary_mask, axes=two_dim_order).flatten())
+    grid_landseamask = np.permute_dims(rotating_gaussian_grid.binary_mask, axes=two_dim_order).flatten()
+    grid_area = np.permute_dims(rotating_gaussian_grid.solid_angles, axes=two_dim_order).flatten()
+
+    grid_corner_lon = np.permute_dims( rotating_gaussian_grid.r_corners_spherical[1], axes=three_dim_order).reshape((-1, 4))
+    grid_corner_lat = np.permute_dims( rotating_gaussian_grid.r_corners_spherical[2], axes=three_dim_order).reshape((-1, 4))
+
     rad2deg = 180 / np.pi
     # Need copy. I am not using "*=" because it is in-place
-    grid_corner_lon = grid_corner_lon * rad2deg   
-    grid_corner_lat = grid_corner_lat * rad2deg   
+    grid_corner_lon = grid_corner_lon * rad2deg
+    grid_corner_lat = grid_corner_lat * rad2deg
     grid_center_lat = grid_center_lat * rad2deg
     grid_center_lon = grid_center_lon * rad2deg
 
-    grid_cos_alpha = rotating_gaussian_grid.cos_alpha.flatten()
-    grid_sin_alpha = rotating_gaussian_grid.sin_alpha.flatten()
+    grid_cos_alpha = np.permute_dims(rotating_gaussian_grid.cos_alpha, axes=two_dim_order).flatten()
+    grid_sin_alpha = np.permute_dims(rotating_gaussian_grid.sin_alpha, axes=two_dim_order).flatten()
  
     if flatten:
         ds = xr.Dataset(
@@ -306,7 +315,7 @@ def write_to_SCRIP_grid_file(
             ),
         )
     else:
-        dim_names = ["j", "i"]
+        dim_names = ["i", "j"]
         print("dim_names : ", dim_names)
         print("grid_dims : ", grid_dims)
         ds = xr.Dataset(
