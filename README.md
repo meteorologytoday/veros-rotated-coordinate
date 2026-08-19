@@ -61,16 +61,6 @@ cooling, an ITCZ-like precipitation pattern). They're prescribed on the
 
 See `ForcingInfo` in `src/veros_case_setup.py` for the exact formulas.
 
-## Install
-
-This repo expects a local editable install of the `veros-jittable` fork
-(a sibling directory alongside this one):
-
-```
-pip install -e ../veros-jittable
-pip install numpy xarray netCDF4 tqdm
-```
-
 ## Running
 
 ```
