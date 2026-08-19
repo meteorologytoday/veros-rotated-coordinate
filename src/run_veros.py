@@ -15,8 +15,12 @@ from veros_case_setup import generateVerosSetup
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
-def write_snapshot(state, out_path):
-    """Dump a handful of prognostic/forcing fields to `out_path`.
+def write_snapshot(state, out_path, time_days):
+    """Dump a handful of prognostic/forcing fields to `out_path`, under an
+    unlimited "time" record dimension (a single record, `time_days` days
+    since the run start) so per-day snapshot files can later be
+    concatenated along time (e.g. `xr.open_mfdataset(..., concat_dim="time",
+    combine="nested")`).
 
     Veros' own diagnostics (snapshot/averages/etc.) are disabled in
     `veros_case_setup.py` because writing *any* netCDF file through
@@ -33,18 +37,31 @@ def write_snapshot(state, out_path):
                           np.asarray(vs.xu[2:-2]), np.asarray(vs.yu[2:-2]), np.asarray(vs.zt))
 
     with netCDF4.Dataset(out_path, "w") as f:
+        f.createDimension("time", None)  # unlimited record dimension
+        time_var = f.createVariable("time", "f8", ("time",))
+        # NOT a CF "<unit> since <date>" units string on purpose -- that
+        # syntax makes xarray try to parse the reference date and decode
+        # this as a datetime, which fails since there's no real calendar
+        # date here (only elapsed simulated days from an arbitrary start).
+        time_var.units = "days"
+        time_var.long_name = "days since run start"
+        time_var[:] = [time_days]
+
         for name, coord in (("xt", xt), ("yt", yt), ("xu", xu), ("yu", yu), ("zt", zt)):
             f.createDimension(name, coord.size)
             f.createVariable(name, "f8", (name,))[:] = coord
 
-        f.createVariable("temp", "f8", ("xt", "yt", "zt"))[:] = np.asarray(vs.temp[2:-2, 2:-2, :, tau])
-        f.createVariable("salt", "f8", ("xt", "yt", "zt"))[:] = np.asarray(vs.salt[2:-2, 2:-2, :, tau])
-        f.createVariable("u", "f8", ("xu", "yt", "zt"))[:] = np.asarray(vs.u[2:-2, 2:-2, :, tau])
-        f.createVariable("v", "f8", ("xt", "yu", "zt"))[:] = np.asarray(vs.v[2:-2, 2:-2, :, tau])
-        f.createVariable("surface_taux", "f8", ("xu", "yt"))[:] = np.asarray(vs.surface_taux[2:-2, 2:-2])
-        f.createVariable("surface_tauy", "f8", ("xt", "yu"))[:] = np.asarray(vs.surface_tauy[2:-2, 2:-2])
-        f.createVariable("forc_temp_surface", "f8", ("xt", "yt"))[:] = np.asarray(vs.forc_temp_surface[2:-2, 2:-2])
-        f.createVariable("forc_salt_surface", "f8", ("xt", "yt"))[:] = np.asarray(vs.forc_salt_surface[2:-2, 2:-2])
+        def write(name, dims, data):
+            f.createVariable(name, "f8", ("time",) + dims)[0] = data
+
+        write("temp", ("xt", "yt", "zt"), np.asarray(vs.temp[2:-2, 2:-2, :, tau]))
+        write("salt", ("xt", "yt", "zt"), np.asarray(vs.salt[2:-2, 2:-2, :, tau]))
+        write("u", ("xu", "yt", "zt"), np.asarray(vs.u[2:-2, 2:-2, :, tau]))
+        write("v", ("xt", "yu", "zt"), np.asarray(vs.v[2:-2, 2:-2, :, tau]))
+        write("surface_taux", ("xu", "yt"), np.asarray(vs.surface_taux[2:-2, 2:-2]))
+        write("surface_tauy", ("xt", "yu"), np.asarray(vs.surface_tauy[2:-2, 2:-2]))
+        write("forc_temp_surface", ("xt", "yt"), np.asarray(vs.forc_temp_surface[2:-2, 2:-2]))
+        write("forc_salt_surface", ("xt", "yt"), np.asarray(vs.forc_salt_surface[2:-2, 2:-2]))
 
 total_time = 86400 * 10
 VerosCaseSetup = generateVerosSetup(
@@ -72,5 +89,5 @@ for step in tqdm(range(total_steps)):
     ocn_model.step(ocn_model.state)
     if (step + 1) % steps_per_snapshot == 0 or step == total_steps - 1:
         day = (step + 1) * settings.dt_tracer / 86400.0
-        write_snapshot(ocn_model.state, f"output_veros.snapshot.{day:06.2f}.nc")
+        write_snapshot(ocn_model.state, f"output_veros.snapshot.{day:06.2f}.nc", day)
 
