@@ -290,7 +290,6 @@ def generateVerosSetup(
             # diagnostic (e.g. "averages") tries to write an output file --
             # so keep the streamfunction solver on despite the extra cost.
             settings.enable_streamfunction = True
-            settings.enable_nan_checks = False
 
             settings.nx, settings.ny, settings.nz = grid_info.nx, grid_info.ny, nz
             settings.dt_mom = dt_mom
